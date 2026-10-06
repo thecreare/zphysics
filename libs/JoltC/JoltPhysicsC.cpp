@@ -16,6 +16,7 @@
 #include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/CollisionCollector.h>
 #include <Jolt/Physics/Collision/CollidePointResult.h>
+#include <Jolt/Physics/Collision/CollisionDispatch.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/TriangleShape.h>
@@ -973,6 +974,186 @@ static const VTable *getInterfaceVTable(const void *in_interface)
     return *static_cast<const VTable *const *>(in_interface);
 }
 
+class Shape final : public JPH::Shape
+{
+public:
+    explicit Shape(
+        const void *in_interface,
+        JPH::EShapeType inType,
+        JPH::EShapeSubType inSubType
+    ) :
+        JPH::Shape(inType, inSubType),
+        mInterface(in_interface)
+    {}
+
+    // Reference implementation:
+    // https://github.com/JuanDiegoMontoya/Frogfood/blob/voxels/src/Voxels/Physics/TwoLevelGridShape.cpp
+    static void CustomCollide(
+        const JPH::Shape* inShape1,
+        const JPH::Shape* inShape2,
+        JPH::Vec3Arg inScale1,
+        JPH::Vec3Arg inScale2,
+        JPH::Mat44Arg inCenterOfMassTransform1,
+        JPH::Mat44Arg inCenterOfMassTransform2,
+        const JPH::SubShapeIDCreator& inSubShapeIDCreator1,
+        const JPH::SubShapeIDCreator& inSubShapeIDCreator2,
+        const JPH::CollideShapeSettings& inCollideShapeSettings,
+        JPH::CollideShapeCollector& ioCollector,
+        const JPH::ShapeFilter& inShapeFilter
+    ) {
+        
+        assert(inShape1->GetType() == JPH::EShapeType::User1);
+        // Ignore self collisions for now
+        if (inShape2->GetType() == JPH::EShapeType::User1)
+            return;
+
+
+        float inScale1_arr[4];
+        float inScale2_arr[4];
+        float inCenterOfMassTransform1_arr[16];
+        float inCenterOfMassTransform2_arr[16];
+        storeVec3(inScale1_arr, inScale1);
+        storeVec3(inScale2_arr, inScale2);
+        storeMat44(inCenterOfMassTransform1_arr, inCenterOfMassTransform1);
+        storeMat44(inCenterOfMassTransform2_arr, inCenterOfMassTransform2);
+
+        auto* s1 = static_cast<const Shape*>(inShape1);
+        // getInterfaceVTable<JPC_ShapeVTable>(s1->mInterface)->TestCall(s1->mInterface, true);
+        getInterfaceVTable<JPC_ShapeVTable>(s1->mInterface)->CollideShape(
+            s1->mInterface,
+            toJpc(inShape1),
+            toJpc(inShape2),
+            inScale1_arr,
+            inScale2_arr,
+            inCenterOfMassTransform1_arr,
+            inCenterOfMassTransform2_arr,
+            toJpc(&inSubShapeIDCreator1),
+            toJpc(&inSubShapeIDCreator2),
+            static_cast<const void*>(&inCollideShapeSettings),
+            static_cast<void*>(&ioCollector),
+            static_cast<const void*>(&inShapeFilter)
+        );
+    }
+
+
+    static void sRegister() {
+        // TODO: Fix hardcoded User1
+        // i think sRegister is a prime candidate for the vtable
+        JPH::ShapeFunctions &f = JPH::ShapeFunctions::sGet(JPH::EShapeSubType::User1);
+        // f.mConstruct = []() -> JPH::Shape * { return new Shape; };
+        f.mColor = JPH::Color::sGreen;
+
+        for (auto shapeSubType : JPH::sAllSubShapeTypes) {
+            JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, shapeSubType, CustomCollide);
+            // JPH::CollisionDispatch::sRegisterCastShape(shapeSubType, JPH::EShapeSubType::User1, CastTwoLevelGrid);
+            // JPH::CollisionDispatch::sRegisterCollideShape(shapeSubType, JPH::EShapeSubType::User1, JPH::CollisionDispatch::sReversedCollideShape);
+            // JPH::CollisionDispatch::sRegisterCastShape(JPH::EShapeSubType::User1, shapeSubType, JPH::CollisionDispatch::sReversedCastShape);
+        }
+
+        // JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, JPH::EShapeSubType::User1, CustomCollide);
+        // JPH::CollisionDispatch::sRegisterCastShape(shapeSubType, JPH::EShapeSubType::User1, CastTwoLevelGrid);
+        // JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, JPH::EShapeSubType::User1, JPH::CollisionDispatch::sReversedCollideShape);
+        // JPH::CollisionDispatch::sRegisterCastShape(JPH::EShapeSubType::User1, shapeSubType, JPH::CollisionDispatch::sReversedCastShape);
+
+    }
+
+
+    // Stolen from sphere for now
+    virtual JPH::AABox GetLocalBounds() const {
+        JPH::Vec3 half_extent = JPH::Vec3::sReplicate(10.f);
+        return JPH::AABox(-half_extent, half_extent);
+	}
+    virtual uint GetSubShapeIDBitsRecursive() const {
+        assert(0);
+        return 0;
+	}
+    virtual float GetInnerRadius() const {
+        return 2;
+	}
+    // Stolen from sphere for now
+    virtual JPH::MassProperties GetMassProperties() const {
+        JPH::MassProperties p;
+
+        float mRadius = 1.f;
+        // Calculate mass
+        float r2 = mRadius * mRadius;
+        // p.mMass = (4.0f / 3.0f * JPC_PI) * mRadius * r2 * GetDensity();
+        p.mMass = (4.0f / 3.0f * JPC_PI) * mRadius * r2 * 1.f;
+
+        // Calculate inertia
+        float inertia = (2.0f / 5.0f) * p.mMass * r2;
+        p.mInertia = JPH::Mat44::sScale(inertia);
+
+        return p;
+	}
+    // No idea how this works
+    virtual const JPH::PhysicsMaterial * GetMaterial(const JPH::SubShapeID &inSubShapeID) const {
+        return nullptr;
+	}
+    virtual JPH::Vec3 GetSurfaceNormal(const JPH::SubShapeID &inSubShapeID, JPH::Vec3Arg inLocalSurfacePosition) const {
+        return JPH::Vec3::sZero();
+	}
+    virtual void GetSubmergedVolume(JPH::Mat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, const JPH::Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, JPH::Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, JPH::RVec3Arg inBaseOffset)) const {
+        assert(0);
+	}
+    virtual bool CastRay(const JPH::RayCast &inRay, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::RayCastResult &ioHit) const {
+        assert(0);
+        return false;
+	}
+    virtual void CastRay(const JPH::RayCast &inRay, const JPH::RayCastSettings &inRayCastSettings, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::CastRayCollector &ioCollector, const JPH::ShapeFilter &inShapeFilter = { }) const {
+        assert(0);
+	}
+    virtual void CollidePoint(JPH::Vec3Arg inPoint, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::CollidePointCollector &ioCollector, const JPH::ShapeFilter &inShapeFilter = { }) const {
+        assert(0);
+	}
+    virtual void CollideSoftBodyVertices(JPH::Mat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, const JPH::CollideSoftBodyVertexIterator &inVertices, uint inNumVertices, int inCollidingShapeIndex) const {
+        assert(0);
+	}
+    virtual void GetTrianglesStart(GetTrianglesContext &ioContext, const JPH::AABox &inBox, JPH::Vec3Arg inPositionCOM, JPH::QuatArg inRotation, JPH::Vec3Arg inScale) const {
+        assert(0);
+	}
+    virtual int GetTrianglesNext(GetTrianglesContext &ioContext, int inMaxTrianglesRequested, JPH::Float3 *outTriangleVertices, const JPH::PhysicsMaterial **outMaterials = nullptr) const {
+        assert(0);
+        return 0;
+	}
+    virtual Stats GetStats() const {
+		return Stats(sizeof(*this), 0);
+	}
+    virtual float GetVolume() const {
+        return 1.f;
+	}
+
+private:
+    const void *mInterface;
+};
+
+class ShapeSettings final : public JPH::ShapeSettings
+{
+public:
+    explicit ShapeSettings(const void *in_interface) : mInterface(in_interface) {}
+
+    ShapeSettings::ShapeResult Create() const
+    {
+        if (mCachedResult.IsEmpty()) {
+            // JPH::Ref<Shape> shape = new Shape(*this, mCachedResult);
+            // TODO: User specified
+            // JPH::Ref<Shape> shape = new Shape(
+            //     const void *in_interface // todo
+            //     JPH::EShapeType::User1,
+            //     JPH::EShapeSubType::User1,
+            //     *this,
+            //     mCachedResult
+            // );
+            JPH::Ref<JPH::Shape> shape = toJph(getInterfaceVTable<JPC_ShapeSettingsVTable>(mInterface)->CreateShape(mInterface));
+            mCachedResult.Set(shape);
+        }
+
+        return mCachedResult;
+    }
+private:
+    const void *mInterface;
+};
+
 class StreamOutAdapter final : public JPH::StreamOut
 {
 public:
@@ -1706,6 +1887,13 @@ JPC_NarrowPhaseQuery_CastRay(const JPC_NarrowPhaseQuery *in_query,
 // JPC_ShapeSettings
 //
 //--------------------------------------------------------------------------------------------------
+JPC_API JPC_ShapeSettings *
+JPC_ShapeSettings_Create(const void *in_interface)
+{
+    auto settings = new ShapeSettings(in_interface);
+    settings->AddRef();
+    return toJpc(settings);
+}
 JPC_API void
 JPC_ShapeSettings_AddRef(JPC_ShapeSettings *in_settings)
 {
@@ -2322,6 +2510,24 @@ JPC_BodyDrawFilter_Destroy(JPC_BodyDrawFilter *filter)
 // JPC_Shape
 //
 //--------------------------------------------------------------------------------------------------
+// JPC_API void JPC_Shape_sRegister(JPC_Shape *in_shape) {
+JPC_API void JPC_Shape_sRegister() {
+    // toJph(in_shape)->sRegister();
+    Shape::sRegister();
+}
+
+JPC_API JPC_Shape* JPC_Shape_Create(
+    const void *in_interface,
+    JPC_ShapeType shape_type,
+    JPC_ShapeSubType shape_sub_type
+) {
+    return toJpc(new Shape(
+        in_interface,
+        static_cast<JPH::EShapeType>(shape_type),
+        static_cast<JPH::EShapeSubType>(shape_sub_type)
+    ));
+}
+
 JPC_API void
 JPC_Shape_AddRef(JPC_Shape *in_shape)
 {
@@ -4126,5 +4332,44 @@ JPC_API JPC_BodyID
 JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character)
 {
     return (JPC_BodyID){ toJph(in_character)->GetInnerBodyID().GetIndexAndSequenceNumber() };
+}
+//--------------------------------------------------------------------------------------------------
+//
+// JPC_CollisionDispatch
+//
+//--------------------------------------------------------------------------------------------------
+JPC_API void JPC_CollisionDispatch_sCollideShapeVsShape(
+    const JPC_Shape* inShape1,
+    const JPC_Shape* inShape2,
+    float inScale1[4],
+    float inScale2[4],
+    float inCenterOfMassTransform1[16],
+    float inCenterOfMassTransform2[16],
+    const JPC_SubShapeIDCreator* inSubShapeIDCreator1,
+    const JPC_SubShapeIDCreator* inSubShapeIDCreator2,
+    const void* inCollideShapeSettings,
+    void* ioCollector,
+    const void* inShapeFilter
+) {
+    JPH::CollisionDispatch::sCollideShapeVsShape(
+        toJph(inShape1),
+        toJph(inShape2),
+        loadVec3(inScale1),
+        loadVec3(inScale2),
+        loadMat44(inCenterOfMassTransform1),//boxCenterOfMassTransform,
+        loadMat44(inCenterOfMassTransform2),
+        // If there's ever an assert tripped in Jolt's hash map (e.g. for very big shapes), this hack is probably the culprit.
+        // Each collision with a different voxel needs a unique shape ID.
+        // inSubShapeIDCreator1.PushID(TwoLevelGrid::FlattenBottomLevelBrickCoord({x, y, z}), 16),
+        *toJph(inSubShapeIDCreator1), ///hmmmm
+        *toJph(inSubShapeIDCreator2),
+        // inCollideShapeSettings,
+        // ioCollector,
+        // inShapeFilter
+        // static_cast<const JPH::CollideShapeSettings &>(inCollideShapeSettings),
+        *static_cast<const JPH::CollideShapeSettings *>(inCollideShapeSettings),
+        *static_cast<JPH::CollideShapeCollector *>(ioCollector),
+        *static_cast<const JPH::ShapeFilter *>(inShapeFilter)
+    );
 }
 //--------------------------------------------------------------------------------------------------

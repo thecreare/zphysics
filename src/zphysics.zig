@@ -2,7 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const assert = std.debug.assert;
 const options = @import("zphysics_options");
-const c = @cImport({
+pub const c = @cImport({
     if (options.use_double_precision) @cDefine("JPH_DOUBLE_PRECISION", "");
     if (options.enable_asserts) @cDefine("JPH_ENABLE_ASSERTS", "");
     if (options.enable_cross_platform_determinism) @cDefine("JPH_CROSS_PLATFORM_DETERMINISTIC", "");
@@ -1394,6 +1394,7 @@ pub fn init(allocator: std.mem.Allocator, args: struct {
 
     c.JPC_CreateFactory();
     c.JPC_RegisterTypes();
+    c.JPC_Shape_sRegister();
 
     state.?.temp_allocator = @as(*TempAllocator, @ptrCast(c.JPC_TempAllocator_Create(args.temp_allocator_size)));
     state.?.job_system = @as(*JobSystem, @ptrCast(c.JPC_JobSystem_Create(args.max_jobs, args.max_barriers, args.num_threads)));
@@ -3003,7 +3004,30 @@ pub const MotionProperties = extern struct {
 // ShapeSettings
 //
 //--------------------------------------------------------------------------------------------------
-pub const ShapeSettings = opaque {
+pub const ShapeSettings = extern struct {
+    __v: *const VTable,
+    // __v: *VTable,
+
+    pub fn init(comptime T: type) ShapeSettings {
+        return .{ .__v = initInterface(T, VTable) };
+    }
+
+    pub const VTable = extern struct {
+        __header: VTableHeader = .{},
+        createShape: *const fn (self: *const ShapeSettings) callconv(.c) *Shape,
+    };
+
+    comptime {
+        assert(@sizeOf(VTable) == @sizeOf(c.JPC_ShapeSettingsVTable));
+        assert(@offsetOf(VTable, "createShape") == @offsetOf(
+            c.JPC_ShapeSettingsVTable,
+            "CreateShape",
+        ));
+        // assert(
+            // @offsetOf(VTable, "onContactRemoved") == @offsetOf(c.JPC_ContactListenerVTable, "OnContactRemoved"),
+        // );
+    }
+
     pub fn addRef(shape_settings: *ShapeSettings) void {
         c.JPC_ShapeSettings_AddRef(@ptrCast(shape_settings));
     }
@@ -3016,9 +3040,18 @@ pub const ShapeSettings = opaque {
         return c.JPC_ShapeSettings_GetRefCount(@as(*const c.JPC_ShapeSettings, @ptrCast(shape_settings)));
     }
 
+    // pub fn create() !*ShapeSettings {
+    //     return @ptrCast(@alignCast(
+    //         c.JPC_ShapeSettings_Create()
+    //         orelse return error.FailedToCreateShape
+    //     ));
+    // }
+
     pub fn createShape(shape_settings: *const ShapeSettings) !*Shape {
-        return @ptrCast(c.JPC_ShapeSettings_CreateShape(@ptrCast(shape_settings)) orelse
-            return error.FailedToCreateShape);
+        return @ptrCast(@alignCast(
+            c.JPC_ShapeSettings_CreateShape(@ptrCast(shape_settings))
+            orelse return error.FailedToCreateShape
+        ));
     }
 
     pub fn getUserData(shape_settings: *const ShapeSettings) u64 {
@@ -3036,7 +3069,7 @@ pub const ShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const ConvexShapeSettings = opaque {
     pub fn asShapeSettings(convex_shape_settings: *ConvexShapeSettings) *ShapeSettings {
-        return @ptrCast(convex_shape_settings);
+        return @ptrCast(@alignCast(convex_shape_settings));
     }
 
     pub fn getMaterial(convex_shape_settings: *const ConvexShapeSettings) ?*const Material {
@@ -3065,7 +3098,7 @@ pub const ConvexShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const BoxShapeSettings = opaque {
     pub fn asShapeSettings(box_shape_settings: *BoxShapeSettings) *ShapeSettings {
-        return @ptrCast(box_shape_settings);
+        return @ptrCast(@alignCast(box_shape_settings));
     }
 
     pub fn asConvexShapeSettings(box_shape_settings: *BoxShapeSettings) *ConvexShapeSettings {
@@ -3108,7 +3141,7 @@ pub const BoxShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const SphereShapeSettings = opaque {
     pub fn asShapeSettings(sphere_shape_settings: *SphereShapeSettings) *ShapeSettings {
-        return @ptrCast(sphere_shape_settings);
+        return @ptrCast(@alignCast(sphere_shape_settings));
     }
 
     pub fn asConvexShapeSettings(sphere_shape_settings: *SphereShapeSettings) *ConvexShapeSettings {
@@ -3135,7 +3168,7 @@ pub const SphereShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const TriangleShapeSettings = opaque {
     pub fn asShapeSettings(triangle_shape_settings: *TriangleShapeSettings) *ShapeSettings {
-        return @ptrCast(triangle_shape_settings);
+        return @ptrCast(@alignCast(triangle_shape_settings));
     }
 
     pub fn asConvexShapeSettings(triangle_shape_settings: *TriangleShapeSettings) *ConvexShapeSettings {
@@ -3168,7 +3201,7 @@ pub const TriangleShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const CapsuleShapeSettings = opaque {
     pub fn asShapeSettings(capsule_shape_settings: *CapsuleShapeSettings) *ShapeSettings {
-        return @ptrCast(capsule_shape_settings);
+        return @ptrCast(@alignCast(capsule_shape_settings));
     }
 
     pub fn asConvexShapeSettings(capsule_shape_settings: *CapsuleShapeSettings) *ConvexShapeSettings {
@@ -3208,7 +3241,7 @@ pub const CapsuleShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const TaperedCapsuleShapeSettings = opaque {
     pub fn asShapeSettings(tapered_capsule_shape_settings: *TaperedCapsuleShapeSettings) *ShapeSettings {
-        return @ptrCast(tapered_capsule_shape_settings);
+        return @ptrCast(@alignCast(tapered_capsule_shape_settings));
     }
 
     pub fn asConvexShapeSettings(tapered_capsule_shape_settings: *TaperedCapsuleShapeSettings) *ConvexShapeSettings {
@@ -3269,7 +3302,7 @@ pub const TaperedCapsuleShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const CylinderShapeSettings = opaque {
     pub fn asShapeSettings(cylinder_shape_settings: *CylinderShapeSettings) *ShapeSettings {
-        return @ptrCast(cylinder_shape_settings);
+        return @ptrCast(@alignCast(cylinder_shape_settings));
     }
 
     pub fn asConvexShapeSettings(cylinder_shape_settings: *CylinderShapeSettings) *ConvexShapeSettings {
@@ -3329,7 +3362,7 @@ pub const CylinderShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const ConvexHullShapeSettings = opaque {
     pub fn asShapeSettings(convex_hull_shape_settings: *ConvexHullShapeSettings) *ShapeSettings {
-        return @ptrCast(convex_hull_shape_settings);
+        return @ptrCast(@alignCast(convex_hull_shape_settings));
     }
 
     pub fn asConvexShapeSettings(convex_hull_shape_settings: *ConvexHullShapeSettings) *ConvexShapeSettings {
@@ -3364,7 +3397,7 @@ pub const ConvexHullShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const HeightFieldShapeSettings = opaque {
     pub fn asShapeSettings(height_field_shape_settings: *HeightFieldShapeSettings) *ShapeSettings {
-        return @ptrCast(height_field_shape_settings);
+        return @ptrCast(@alignCast(height_field_shape_settings));
     }
 
     pub fn create(
@@ -3442,7 +3475,7 @@ pub const HeightFieldShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const MeshShapeSettings = opaque {
     pub fn asShapeSettings(mesh_shape_settings: *MeshShapeSettings) *ShapeSettings {
-        return @ptrCast(mesh_shape_settings);
+        return @ptrCast(@alignCast(mesh_shape_settings));
     }
 
     pub fn create(
@@ -3483,7 +3516,7 @@ pub const MeshShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const DecoratedShapeSettings = opaque {
     pub fn asShapeSettings(decorated_shape_settings: *DecoratedShapeSettings) *ShapeSettings {
-        return @ptrCast(decorated_shape_settings);
+        return @ptrCast(@alignCast(decorated_shape_settings));
     }
 
     pub fn createRotatedTranslated(
@@ -3519,7 +3552,7 @@ pub const DecoratedShapeSettings = opaque {
 //--------------------------------------------------------------------------------------------------
 pub const CompoundShapeSettings = opaque {
     pub fn asShapeSettings(compound_shape_settings: *CompoundShapeSettings) *ShapeSettings {
-        return @ptrCast(compound_shape_settings);
+        return @ptrCast(@alignCast(compound_shape_settings));
     }
 
     pub fn createStatic() !*CompoundShapeSettings {
@@ -3553,7 +3586,45 @@ pub const CompoundShapeSettings = opaque {
 // Shape
 //
 //--------------------------------------------------------------------------------------------------
-pub const Shape = opaque {
+pub const Shape = extern struct {
+    __v: *const VTable,
+    // __v: *VTable,
+
+    pub fn init(comptime T: type) Shape {
+        return .{ .__v = initInterface(T, VTable) };
+    }
+
+    pub const VTable = extern struct {
+        __header: VTableHeader = .{},
+        testCall: *const fn (self: *const Shape, b: bool) callconv(.c) void,
+        collideShape: *const fn(
+            self: *const Shape,
+            inShape1: *const Shape,
+            inShape2: *const Shape,
+            inScale1: *[4]f32,
+            inScale2: *[4]f32,
+            inCenterOfMassTransform1: *[16]f32,
+            inCenterOfMassTransform2: *[16]f32,
+            inSubShapeIDCreator1: *const SubShapeIDCreator,
+            inSubShapeIDCreator2: *const SubShapeIDCreator,
+            inCollideShapeSettings: *const anyopaque,
+            ioCollector: *anyopaque,
+            inShapeFilter: *const anyopaque,
+        ) callconv(.c) void,
+    };
+
+    comptime {
+        assert(@sizeOf(VTable) == @sizeOf(c.JPC_ShapeVTable));
+        assert(@offsetOf(VTable, "testCall") == @offsetOf(
+            c.JPC_ShapeVTable,
+            "TestCall",
+        ));
+        assert(@offsetOf(VTable, "collideShape") == @offsetOf(
+            c.JPC_ShapeVTable,
+            "CollideShape",
+        ));
+    }
+
     pub const Type = enum(c.JPC_ShapeType) {
         convex = c.JPC_SHAPE_TYPE_CONVEX,
         compound = c.JPC_SHAPE_TYPE_COMPOUND,

@@ -1068,6 +1068,35 @@ typedef struct JPC_ContactListenerVTable
     (*OnContactRemoved)(void *in_self, const JPC_SubShapeIDPair *in_sub_shape_pair);
 } JPC_ContactListenerVTable;
 
+typedef struct JPC_ShapeVTable
+{
+    // I don't know what this does
+    _JPC_VTABLE_HEADER;
+    void (*TestCall)(const void *in_self, bool in_test_bool);
+
+    void (*CollideShape)(
+        const void *in_self,
+        const JPC_Shape* inShape1,
+        const JPC_Shape* inShape2,
+        float inScale1[4],
+        float inScale2[4],
+        float inCenterOfMassTransform1[16],
+        float inCenterOfMassTransform2[16],
+        const JPC_SubShapeIDCreator* inSubShapeIDCreator1,
+        const JPC_SubShapeIDCreator* inSubShapeIDCreator2,
+        const void* inCollideShapeSettings,
+        void* ioCollector,
+        const void* inShapeFilter
+    );
+} JPC_ShapeVTable;
+
+typedef struct JPC_ShapeSettingsVTable
+{
+    // I don't know what this does
+    _JPC_VTABLE_HEADER;
+    JPC_Shape* (*CreateShape)(const void *in_self);
+} JPC_ShapeSettingsVTable;
+
 #if JPC_DEBUG_RENDERER == 1
 /// Although used similarly to the VTables above, this struct is not pointer-compatible with JPH::DebugRenderer
 /// Instead, it's wrapped by the DebugRendererImpl inheritor class (as seen in JoltPhysicsC.cpp), because
@@ -1554,6 +1583,8 @@ JPC_NarrowPhaseQuery_CastRay(const JPC_NarrowPhaseQuery *in_query,
 // JPC_ShapeSettings
 //
 //--------------------------------------------------------------------------------------------------
+JPC_API JPC_ShapeSettings *JPC_ShapeSettings_Create(const void *in_interface);
+
 JPC_API void
 JPC_ShapeSettings_AddRef(JPC_ShapeSettings *in_settings);
 
@@ -1855,6 +1886,15 @@ JPC_BodyDrawFilter_Destroy(JPC_BodyDrawFilter *);
 // JPC_Shape
 //
 //--------------------------------------------------------------------------------------------------
+// JPC_API void JPC_Shape_sRegister(JPC_Shape *in_shape);
+JPC_API void JPC_Shape_sRegister();
+
+JPC_API JPC_Shape* JPC_Shape_Create(
+    const void *in_interface,
+    JPC_ShapeType shape_type,
+    JPC_ShapeSubType shape_sub_type
+);
+
 JPC_API void
 JPC_Shape_AddRef(JPC_Shape *in_shape);
 
@@ -2631,6 +2671,24 @@ JPC_CharacterVirtual_SetUserData(JPC_CharacterVirtual *in_character, uint64_t in
 
 JPC_API JPC_BodyID
 JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character);
+//--------------------------------------------------------------------------------------------------
+//
+// JPC_CollisionDispatch
+//
+//--------------------------------------------------------------------------------------------------
+JPC_API void JPC_CollisionDispatch_sCollideShapeVsShape(
+    const JPC_Shape* inShape1,
+    const JPC_Shape* inShape2,
+    float inScale1[4],
+    float inScale2[4],
+    float inCenterOfMassTransform1[16],
+    float inCenterOfMassTransform2[16],
+    const JPC_SubShapeIDCreator* inSubShapeIDCreator1,
+    const JPC_SubShapeIDCreator* inSubShapeIDCreator2,
+    const void* inCollideShapeSettings,
+    void* ioCollector,
+    const void* inShapeFilter
+);
 //--------------------------------------------------------------------------------------------------
 #ifdef __cplusplus
 }
