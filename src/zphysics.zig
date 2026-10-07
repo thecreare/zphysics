@@ -781,6 +781,10 @@ pub const SubShapeIDCreator = extern struct {
         assert(@sizeOf(SubShapeIDCreator) == @sizeOf(c.JPC_SubShapeIDCreator));
         assert(@offsetOf(SubShapeIDCreator, "current_bit") == @offsetOf(c.JPC_SubShapeIDCreator, "current_bit"));
     }
+
+    pub fn pushID(self: *const SubShapeIDCreator, inValue: u32, inBits: u32) SubShapeIDCreator {
+        return @bitCast(c.JPC_SubShapeIDCreator_PushID(@ptrCast(self), @intCast(inValue), @intCast(inBits)));
+    }
 };
 
 pub const CollideShapeResult = extern struct {

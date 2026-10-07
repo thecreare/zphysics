@@ -2673,6 +2673,16 @@ JPC_API JPC_BodyID
 JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character);
 //--------------------------------------------------------------------------------------------------
 //
+// JPC_SubShapeIDCreator
+//
+//--------------------------------------------------------------------------------------------------
+JPC_API JPC_SubShapeIDCreator JPC_SubShapeIDCreator_PushID(
+    const JPC_SubShapeIDCreator *in_creator,
+    uint inValue,
+    uint inBits
+);
+//--------------------------------------------------------------------------------------------------
+//
 // JPC_CollisionDispatch
 //
 //--------------------------------------------------------------------------------------------------

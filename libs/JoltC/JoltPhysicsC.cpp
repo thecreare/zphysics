@@ -4337,6 +4337,21 @@ JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character)
 }
 //--------------------------------------------------------------------------------------------------
 //
+// JPC_SubShapeIDCreator
+//
+//--------------------------------------------------------------------------------------------------
+JPC_API JPC_SubShapeIDCreator JPC_SubShapeIDCreator_PushID(
+    const JPC_SubShapeIDCreator *in_creator,
+    uint inValue,
+    uint inBits
+) {
+    // uhh is this correct memory shenanigans
+    JPH::SubShapeIDCreator copy = toJph(in_creator)->PushID(inValue, inBits);
+    JPC_SubShapeIDCreator jpc = *toJpc(&copy);
+    return jpc;
+}
+//--------------------------------------------------------------------------------------------------
+//
 // JPC_CollisionDispatch
 //
 //--------------------------------------------------------------------------------------------------
@@ -4358,17 +4373,10 @@ JPC_API void JPC_CollisionDispatch_sCollideShapeVsShape(
         toJph(inShape2),
         loadVec3(inScale1),
         loadVec3(inScale2),
-        loadMat44(inCenterOfMassTransform1),//boxCenterOfMassTransform,
+        loadMat44(inCenterOfMassTransform1),
         loadMat44(inCenterOfMassTransform2),
-        // If there's ever an assert tripped in Jolt's hash map (e.g. for very big shapes), this hack is probably the culprit.
-        // Each collision with a different voxel needs a unique shape ID.
-        // inSubShapeIDCreator1.PushID(TwoLevelGrid::FlattenBottomLevelBrickCoord({x, y, z}), 16),
-        *toJph(inSubShapeIDCreator1), ///hmmmm
+        *toJph(inSubShapeIDCreator1),
         *toJph(inSubShapeIDCreator2),
-        // inCollideShapeSettings,
-        // ioCollector,
-        // inShapeFilter
-        // static_cast<const JPH::CollideShapeSettings &>(inCollideShapeSettings),
         *static_cast<const JPH::CollideShapeSettings *>(inCollideShapeSettings),
         *static_cast<JPH::CollideShapeCollector *>(ioCollector),
         *static_cast<const JPH::ShapeFilter *>(inShapeFilter)
