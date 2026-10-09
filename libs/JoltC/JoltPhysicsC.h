@@ -1088,6 +1088,23 @@ typedef struct JPC_ShapeVTable
         void* ioCollector,
         const void* inShapeFilter
     );
+    JPC_AABox (*GetLocalBounds)(const void *in_self);
+    JPC_MassProperties (*GetMassProperties)(const void *in_self);
+    float* (*GetSurfaceNormal)(const void *in_self, const JPC_SubShapeID* inSubShapeID, float* inLocalSurfacePosition); 
+    float (*GetVolume)(const void *in_self);
+    #if JPC_DEBUG_RENDERER == 1
+    void (*Draw)(
+        const void *in_self,
+        void *inRenderer,
+        JPC_Real* inCenterOfMassTransform,
+        float* inScale,
+        JPC_Color inColor,
+        bool inUseMaterialColors,
+        bool inDrawWireframe
+    );
+    #else
+    void (*Draw)();
+    #endif
 } JPC_ShapeVTable;
 
 typedef struct JPC_ShapeSettingsVTable

@@ -1046,61 +1046,64 @@ public:
         for (auto shapeSubType : JPH::sAllSubShapeTypes) {
             if (shapeSubType == JPH::EShapeSubType::User1) continue;
             JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, shapeSubType, CustomCollide);
-            // JPH::CollisionDispatch::sRegisterCastShape(shapeSubType, JPH::EShapeSubType::User1, CastTwoLevelGrid);
             JPH::CollisionDispatch::sRegisterCollideShape(shapeSubType, JPH::EShapeSubType::User1, JPH::CollisionDispatch::sReversedCollideShape);
-            // JPH::CollisionDispatch::sRegisterCastShape(JPH::EShapeSubType::User1, shapeSubType, JPH::CollisionDispatch::sReversedCastShape);
         }
         JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, JPH::EShapeSubType::User1, CustomCollide);
-
-        // JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, JPH::EShapeSubType::User1, CustomCollide);
-        // JPH::CollisionDispatch::sRegisterCastShape(shapeSubType, JPH::EShapeSubType::User1, CastTwoLevelGrid);
-        // JPH::CollisionDispatch::sRegisterCollideShape(JPH::EShapeSubType::User1, JPH::EShapeSubType::User1, JPH::CollisionDispatch::sReversedCollideShape);
-        // JPH::CollisionDispatch::sRegisterCastShape(JPH::EShapeSubType::User1, shapeSubType, JPH::CollisionDispatch::sReversedCastShape);
-
     }
 
-
-    // Stolen from sphere for now
     virtual JPH::AABox GetLocalBounds() const {
-        JPH::Vec3 half_extent = JPH::Vec3::sReplicate(10.f);
-        return JPH::AABox(-half_extent, half_extent);
+        auto a = getInterfaceVTable<JPC_ShapeVTable>(mInterface)->GetLocalBounds(mInterface);
+        return *toJph(&a);
 	}
-    virtual uint GetSubShapeIDBitsRecursive() const {
-        assert(0);
-        return 0;
-	}
-    virtual float GetInnerRadius() const {
-        return 2;
-	}
-    // Stolen from sphere for now
     virtual JPH::MassProperties GetMassProperties() const {
+        JPC_MassProperties properties = getInterfaceVTable<JPC_ShapeVTable>(mInterface)->GetMassProperties(mInterface);
+        // idk this is fucked
         JPH::MassProperties p;
-
-        float mRadius = 1.f;
-        // Calculate mass
-        float r2 = mRadius * mRadius;
-        // p.mMass = (4.0f / 3.0f * JPC_PI) * mRadius * r2 * GetDensity();
-        p.mMass = (4.0f / 3.0f * JPC_PI) * mRadius * r2 * 1.f;
-
-        // Calculate inertia
-        float inertia = (2.0f / 5.0f) * p.mMass * r2;
-        p.mInertia = JPH::Mat44::sScale(inertia);
-
+        p.mMass = properties.mass;
+        p.mInertia = loadMat44(properties.inertia);
         return p;
 	}
-    // No idea how this works
+    virtual JPH::Vec3 GetSurfaceNormal(const JPH::SubShapeID &inSubShapeID, JPH::Vec3Arg inLocalSurfacePosition) const {
+        float inLocalSurfacePosition_arr[4];
+        storeVec3(inLocalSurfacePosition_arr, inLocalSurfacePosition);
+
+        return loadVec3(getInterfaceVTable<JPC_ShapeVTable>(mInterface)->GetSurfaceNormal(
+            mInterface,
+            // toJpc(&inSubShapeID),
+            reinterpret_cast<const JPC_SubShapeID *>(&inSubShapeID),
+            inLocalSurfacePosition_arr
+        ));
+	}
+    virtual Stats GetStats() const {
+		return Stats(sizeof(*this), 0);
+	}
+    virtual float GetVolume() const {
+        return getInterfaceVTable<JPC_ShapeVTable>(mInterface)->GetVolume(mInterface);
+	}
+    #if JPC_DEBUG_RENDERER == 1
+    virtual void Draw(JPH::DebugRenderer *inRenderer, JPH::RMat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, JPH::ColorArg inColor, bool inUseMaterialColors, bool inDrawWireframe) const {
+        float inScale_arr[4];
+        float inCenterOfMassTransform_arr[16];
+        storeVec3(inScale_arr, inScale);
+        storeMat44(inCenterOfMassTransform_arr, inCenterOfMassTransform);
+        // getInterfaceVTable<JPC_ShapeVTable>(mInterface)->Draw(mInterface, toJpc(inRenderer), inCenterOfMassTransform_arr, inScale_arr, *toJpc(&inColor), inUseMaterialColors, inDrawWireframe);
+    }
+    #endif
+
     virtual const JPH::PhysicsMaterial * GetMaterial(const JPH::SubShapeID &inSubShapeID) const {
         return nullptr;
 	}
-    virtual JPH::Vec3 GetSurfaceNormal(const JPH::SubShapeID &inSubShapeID, JPH::Vec3Arg inLocalSurfacePosition) const {
-        return JPH::Vec3::sZero();
+    virtual uint GetSubShapeIDBitsRecursive() const {
+        assert(0); return 0;
+	}
+    virtual float GetInnerRadius() const {
+        assert(0); return 1;
 	}
     virtual void GetSubmergedVolume(JPH::Mat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, const JPH::Plane &inSurface, float &outTotalVolume, float &outSubmergedVolume, JPH::Vec3 &outCenterOfBuoyancy JPH_IF_DEBUG_RENDERER(, JPH::RVec3Arg inBaseOffset)) const {
         assert(0);
 	}
     virtual bool CastRay(const JPH::RayCast &inRay, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::RayCastResult &ioHit) const {
-        assert(0);
-        return false;
+        assert(0); return false;
 	}
     virtual void CastRay(const JPH::RayCast &inRay, const JPH::RayCastSettings &inRayCastSettings, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::CastRayCollector &ioCollector, const JPH::ShapeFilter &inShapeFilter = { }) const {
         assert(0);
@@ -1115,14 +1118,7 @@ public:
         assert(0);
 	}
     virtual int GetTrianglesNext(GetTrianglesContext &ioContext, int inMaxTrianglesRequested, JPH::Float3 *outTriangleVertices, const JPH::PhysicsMaterial **outMaterials = nullptr) const {
-        assert(0);
-        return 0;
-	}
-    virtual Stats GetStats() const {
-		return Stats(sizeof(*this), 0);
-	}
-    virtual float GetVolume() const {
-        return 1.f;
+        assert(0); return 0;
 	}
 
 private:

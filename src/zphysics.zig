@@ -3615,6 +3615,12 @@ pub const Shape = extern struct {
             ioCollector: *anyopaque,
             inShapeFilter: *const anyopaque,
         ) callconv(.c) void,
+
+        getLocalBounds: *const fn(self: *const Shape) callconv(.c) AABox,
+        getMassProperties: *const fn(self: *const Shape) callconv(.c) MassProperties,
+        getSurfaceNormal: *const fn(self: *const Shape, inSubShapeID: *const SubShapeId, inLocalSurfacePosition: *[4]f32) callconv(.c) *[4]f32,
+        getVolume: *const fn(self: *const Shape) callconv(.c) f32,
+        draw: *const fn(self: *const Shape, inRenderer: *DebugRenderer, inCenterOfMassTransform: *[16]Real, inScale: *[4]f32, inColor: u32, inUseMaterialColors: bool, inDrawWireframe: bool) callconv(.c) void,
     };
 
     comptime {
@@ -3623,9 +3629,9 @@ pub const Shape = extern struct {
             c.JPC_ShapeVTable,
             "TestCall",
         ));
-        assert(@offsetOf(VTable, "collideShape") == @offsetOf(
+        assert(@offsetOf(VTable, "draw") == @offsetOf(
             c.JPC_ShapeVTable,
-            "CollideShape",
+            "Draw",
         ));
     }
 
