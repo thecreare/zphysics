@@ -2695,8 +2695,8 @@ JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character);
 //--------------------------------------------------------------------------------------------------
 JPC_API JPC_SubShapeIDCreator JPC_SubShapeIDCreator_PushID(
     const JPC_SubShapeIDCreator *in_creator,
-    uint inValue,
-    uint inBits
+    uint32_t inValue,
+    uint32_t inBits
 );
 //--------------------------------------------------------------------------------------------------
 //

@@ -1093,7 +1093,7 @@ public:
     virtual const JPH::PhysicsMaterial * GetMaterial(const JPH::SubShapeID &inSubShapeID) const {
         return nullptr;
 	}
-    virtual uint GetSubShapeIDBitsRecursive() const {
+    virtual uint32_t GetSubShapeIDBitsRecursive() const {
         assert(0); return 0;
 	}
     virtual float GetInnerRadius() const {
@@ -1111,7 +1111,7 @@ public:
     virtual void CollidePoint(JPH::Vec3Arg inPoint, const JPH::SubShapeIDCreator &inSubShapeIDCreator, JPH::CollidePointCollector &ioCollector, const JPH::ShapeFilter &inShapeFilter = { }) const {
         assert(0);
 	}
-    virtual void CollideSoftBodyVertices(JPH::Mat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, const JPH::CollideSoftBodyVertexIterator &inVertices, uint inNumVertices, int inCollidingShapeIndex) const {
+    virtual void CollideSoftBodyVertices(JPH::Mat44Arg inCenterOfMassTransform, JPH::Vec3Arg inScale, const JPH::CollideSoftBodyVertexIterator &inVertices, uint32_t inNumVertices, int inCollidingShapeIndex) const {
         assert(0);
 	}
     virtual void GetTrianglesStart(GetTrianglesContext &ioContext, const JPH::AABox &inBox, JPH::Vec3Arg inPositionCOM, JPH::QuatArg inRotation, JPH::Vec3Arg inScale) const {
@@ -4338,8 +4338,8 @@ JPC_CharacterVirtual_GetInnerBodyID(const JPC_CharacterVirtual *in_character)
 //--------------------------------------------------------------------------------------------------
 JPC_API JPC_SubShapeIDCreator JPC_SubShapeIDCreator_PushID(
     const JPC_SubShapeIDCreator *in_creator,
-    uint inValue,
-    uint inBits
+    uint32_t inValue,
+    uint32_t inBits
 ) {
     // uhh is this correct memory shenanigans
     JPH::SubShapeIDCreator copy = toJph(in_creator)->PushID(inValue, inBits);
