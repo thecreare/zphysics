@@ -2,13 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const assert = std.debug.assert;
 const options = @import("zphysics_options");
-pub const c = @cImport({
-    if (options.use_double_precision) @cDefine("JPH_DOUBLE_PRECISION", "");
-    if (options.enable_asserts) @cDefine("JPH_ENABLE_ASSERTS", "");
-    if (options.enable_cross_platform_determinism) @cDefine("JPH_CROSS_PLATFORM_DETERMINISTIC", "");
-    if (options.enable_debug_renderer) @cDefine("JPH_DEBUG_RENDERER", "");
-    @cInclude("JoltPhysicsC.h");
-});
+pub const c = @import("c");
 
 pub const Real = c.JPC_Real;
 pub const uses_double_precision = options.use_double_precision;
@@ -2430,7 +2424,7 @@ pub const Body = extern struct {
     }
 
     pub fn getShape(body: *const Body) *const Shape {
-        return @as(*const Shape, @ptrCast(c.JPC_Body_GetShape(@as(*const c.JPC_Body, @ptrCast(body)))));
+        return @as(*const Shape, @ptrCast(@alignCast(c.JPC_Body_GetShape(@as(*const c.JPC_Body, @ptrCast(body))))));
     }
 
     pub fn getTransformedShape(body: *const Body) TransformedShape {
@@ -3696,7 +3690,7 @@ pub const Shape = extern struct {
         const shape = c.JPC_Shape_sRestoreFromBinaryState(stream_in);
         if (shape == null)
             return error.FailedToRestoreShape;
-        return @as(*Shape, @ptrCast(shape));
+        return @as(*Shape, @ptrCast(@alignCast(shape)));
     }
 
     pub fn restoreWithChildrenAll(stream_in: *StreamIn) !*Shape {
