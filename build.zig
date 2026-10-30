@@ -36,10 +36,12 @@ pub fn build(b: *std.Build) void {
             "no_exceptions",
             "Disable C++ Exceptions",
         ) orelse true,
-    };
+        .system_include_path = b.option(std.Build.LazyPath, "system_include_path", "System include path for emscripten"),
+   };
 
     const options_step = b.addOptions();
     inline for (std.meta.fields(@TypeOf(options))) |field| {
+        comptime if (std.mem.eql(u8, field.name, "system_include_path")) continue;
         options_step.addOption(field.type, field.name, @field(options, field.name));
     }
     const options_module = options_step.createModule();
@@ -75,7 +77,6 @@ pub fn build(b: *std.Build) void {
             .{ .name = "c", .module = t.mod },
         },
     });
-
 
     const test_step = b.step("test", "Run zphysics tests");
     const tests = b.addTest(.{
@@ -118,6 +119,8 @@ pub fn buildLibjoltc(
     if (options.shared and target.result.os.tag == .windows)
         joltc_module.addCMacro("JPC_API", "extern __declspec(dllexport)");
 
+    if (options.system_include_path) |path|
+        joltc_module.addSystemIncludePath(path);
     joltc_module.addIncludePath(b.path("libs"));
     joltc_module.addIncludePath(b.path("libs/JoltC"));
     if (target.result.abi != .msvc) {
