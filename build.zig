@@ -1,17 +1,6 @@
 const std = @import("std");
 const Translator = @import("translate_c").Translator;
 
-fn addMacros(module: *std.Build.Module, options: anytype) void {
-    if (options.enable_cross_platform_determinism)
-        module.addCMacro("JPH_CROSS_PLATFORM_DETERMINISTIC", "");
-    if (options.enable_debug_renderer)
-        module.addCMacro("JPH_DEBUG_RENDERER", "");
-    if (options.use_double_precision)
-        module.addCMacro("JPH_DOUBLE_PRECISION", "");
-    if (options.enable_asserts)
-        module.addCMacro("JPH_ENABLE_ASSERTS", "");
-}
-
 pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const target = b.standardTargetOptions(.{});
@@ -58,9 +47,20 @@ pub fn build(b: *std.Build) void {
     const libjoltc = buildLibjoltc(b, target, optimize, options);
     const translate_c = b.dependency("translate_c", .{});
     const t: Translator = .init(translate_c, .{
-        .c_source_file = b.addWriteFiles().add("c.h",
-            \\#include <jc.h>
-        ),
+        .c_source_file = b.addWriteFiles().add("c.h", std.fmt.allocPrint(b.allocator,
+                \\{s}
+                \\{s}
+                \\{s}
+                \\{s}
+                \\#include <jc.h>
+            , 
+            .{
+                if (options.enable_cross_platform_determinism) "#define JPH_CROSS_PLATFORM_DETERMINISTIC" else "",
+                if (options.enable_debug_renderer) "#define JPH_DEBUG_RENDERER" else "",
+                if (options.use_double_precision) "#define JPH_DOUBLE_PRECISION" else "",
+                if (options.enable_asserts) "#define JPH_ENABLE_ASSERTS" else "",
+            }
+        ) catch @panic("OOM")),
         .target = target,
         .optimize = optimize,
     });
@@ -115,7 +115,6 @@ pub fn buildLibjoltc(
         .link_libc = true,
     });
 
-    addMacros(joltc_module, options);
     if (options.shared and target.result.os.tag == .windows)
         joltc_module.addCMacro("JPC_API", "extern __declspec(dllexport)");
 
